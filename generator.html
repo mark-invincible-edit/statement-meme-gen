@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>He made a statement so good: meme generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f1f1ee; --surface:#ffffff; --text:#171717; --muted:#666; --border:#d8d8d2; --accent:#4fa83a;
+  --font-ui:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --font-meme:"Oswald","Bebas Neue","Arial Narrow",Impact,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#121212; --surface:#1d1d1d; --text:#ededed; --muted:#9a9a9a; --border:#333; }
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font:15px/1.4 var(--font-ui);padding:20px 16px 40px}
+.wrap{max-width:900px;margin:0 auto}
+h1{font-size:20px;margin:0 0 4px;font-weight:650}
+.hint{color:var(--muted);margin:0 0 16px}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:14px;display:flex;flex-direction:column;gap:12px}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px}
+.group{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.group>label{font-weight:600;min-width:74px}
+button.btn{font:inherit;padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer}
+button.btn:hover{border-color:var(--muted)}
+button.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+button:focus-visible,input:focus-visible,[contenteditable]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sw{width:26px;height:26px;border-radius:50%;border:2px solid var(--border);cursor:pointer;padding:0}
+.sw:hover{transform:scale(1.12)}
+.hl-sw{border-radius:7px}
+input[type=color]{width:32px;height:28px;padding:0;border:1px solid var(--border);border-radius:6px;background:none;cursor:pointer}
+.slider{display:flex;align-items:center;gap:8px}
+.slider input{width:130px}
+.small{font-size:13px;padding:5px 10px}
+
+/* Stage: the meme itself, always laid out at 840px wide then scaled to fit the screen */
+#fit{width:100%;position:relative;overflow:hidden;border-radius:6px}
+#stage{width:840px;display:flex;align-items:stretch;background:#000;transform-origin:top left;position:absolute;top:0;left:0}
+#textPanel{flex:0 0 40%;background:#000;display:flex;align-items:center;padding:20px 22px;overflow:hidden;min-width:0}
+#editor{
+  width:100%;color:#fff;font-family:var(--font-meme);font-weight:600;font-size:56px;line-height:1.28;
+  letter-spacing:.01em;text-transform:uppercase;text-align:left;outline:none;word-break:break-word;caret-color:#fff;
+}
+#editor div{min-height:1em}
+#editor span[style*="background-color"]:not([style*="transparent"]){
+  border-radius:.24em;padding:.04em .2em;-webkit-box-decoration-break:clone;box-decoration-break:clone;
+}
+#imgBox{flex:1 1 0;min-width:0;position:relative;background:#2a2a2a;cursor:pointer;min-height:420px}
+#imgBox.has{min-height:0}
+#imgBox img{display:none;width:100%;height:auto;vertical-align:top}
+#imgBox.has img{display:block}
+#empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;color:#bbb;padding:20px;font:15px var(--font-ui);border:2px dashed #555;margin:14px;border-radius:12px;inset:0}
+#imgBox.has #empty{display:none}
+#imgBox.drag{outline:3px dashed var(--accent);outline-offset:-6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>“He made a statement so good” meme generator</h1>
+  <p class="hint">Upload an image, then type in the black box. Select words and pick a text color or a rounded highlight.</p>
+
+  <div class="panel">
+    <div class="row">
+      <button class="btn primary" id="uploadBtn" type="button">Upload image</button>
+      <button class="btn" id="downloadBtn" type="button">Download PNG</button>
+      <input type="file" id="file" accept="image/*" hidden>
+      <div class="slider"><label for="size">Text size</label><input type="range" id="size" min="28" max="96" value="56"></div>
+      <div class="slider"><label for="split">Text box width</label><input type="range" id="split" min="28" max="55" value="40"></div>
+    </div>
+    <div class="group"><label>Text color</label><span id="textSw" class="group"></span><input type="color" id="textCustom" value="#6cc04a" title="Custom text color" aria-label="Custom text color"></div>
+    <div class="group"><label>Highlight</label><span id="hlSw" class="group"></span><input type="color" id="hlCustom" value="#6cc04a" title="Custom highlight color" aria-label="Custom highlight color">
+      <button class="btn small" id="hlOff" type="button">Remove highlight</button>
+      <button class="btn small" id="clearFmt" type="button">Clear all formatting</button>
+    </div>
+  </div>
+
+  <div id="fit">
+    <div id="stage">
+      <div id="textPanel">
+        <div id="editor" contenteditable="true" spellcheck="false" aria-label="Meme text"></div>
+      </div>
+      <div id="imgBox">
+        <img id="img" alt="Your uploaded image">
+        <div id="empty">Click or drop an image here</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var $ = function(id){return document.getElementById(id)};
+  var editor=$('editor'), stage=$('stage'), fit=$('fit'), imgBox=$('imgBox'), img=$('img'), fileIn=$('file');
+  var COLORS=['#ffffff','#6cc04a','#e5484d','#f0c24b','#4da3ff','#ff7ac8','#ff9f43','#000000'];
+
+  /* Starting text, matching the reference meme */
+  editor.innerHTML =
+    '<div>He made a</div>' +
+    '<div><span style="background-color: #6cc04a;">Statement</span></div>' +
+    '<div>So <span style="color: #6cc04a;">good</span></div>' +
+    '<div>✅👍 even</div>' +
+    '<div>his <span style="color: #e5484d;">opps</span></div>' +
+    '<div><span style="color: #f0c24b;">praised</span></div>' +
+    '<div>him 🙌😆🥹</div>';
+
+  /* ---------- Selection handling (so toolbar clicks never lose the selection) ---------- */
+  var saved=null;
+  document.addEventListener('selectionchange',function(){
+    var s=window.getSelection();
+    if(s.rangeCount && editor.contains(s.anchorNode)) saved=s.getRangeAt(0).cloneRange();
+  });
+  function restore(){
+    editor.focus();
+    if(saved){var s=window.getSelection();s.removeAllRanges();s.addRange(saved);}
+  }
+  function hasSelection(){return saved && !saved.collapsed;}
+  function exec(cmd,val){
+    restore();
+    document.execCommand('styleWithCSS',false,true);
+    document.execCommand(cmd,false,val);
+  }
+  function setText(c){ if(hasSelection()) exec('foreColor',c); }
+  function setHl(c){ if(hasSelection()) exec('hiliteColor',c); }
+
+  /* Swatches */
+  function makeSwatches(host,cls,handler){
+    COLORS.forEach(function(c){
+      var b=document.createElement('button');
+      b.type='button';b.className='sw '+cls;b.style.background=c;b.title=c;b.setAttribute('aria-label',c);
+      b.addEventListener('mousedown',function(e){e.preventDefault();});
+      b.addEventListener('click',function(){handler(c);});
+      host.appendChild(b);
+    });
+  }
+  makeSwatches($('textSw'),'',setText);
+  makeSwatches($('hlSw'),'hl-sw',setHl);
+  $('textCustom').addEventListener('input',function(e){setText(e.target.value);});
+  $('hlCustom').addEventListener('input',function(e){setHl(e.target.value);});
+  ['hlOff','clearFmt'].forEach(function(id){
+    $(id).addEventListener('mousedown',function(e){e.preventDefault();});
+  });
+  $('hlOff').addEventListener('click',function(){ if(hasSelection()) exec('hiliteColor','transparent'); });
+  $('clearFmt').addEventListener('click',function(){
+    if(!hasSelection()) return;
+    exec('hiliteColor','transparent'); exec('foreColor','#ffffff');
+  });
+
+  /* Plain-text paste so outside formatting never sneaks in */
+  editor.addEventListener('paste',function(e){
+    e.preventDefault();
+    var t=(e.clipboardData||window.clipboardData).getData('text/plain');
+    document.execCommand('insertText',false,t);
+  });
+
+  /* ---------- Sliders ---------- */
+  $('size').addEventListener('input',function(e){editor.style.fontSize=e.target.value+'px';layout();});
+  $('split').addEventListener('input',function(e){$('textPanel').style.flexBasis=e.target.value+'%';layout();});
+
+  /* ---------- Image upload ---------- */
+  function loadFile(f){
+    if(!f||!/^image\//.test(f.type)) return;
+    var url=URL.createObjectURL(f);
+    img.onload=function(){imgBox.classList.add('has');layout();};
+    img.src=url;
+  }
+  $('uploadBtn').addEventListener('click',function(){fileIn.click();});
+  imgBox.addEventListener('click',function(){fileIn.click();});
+  fileIn.addEventListener('change',function(){loadFile(fileIn.files[0]);fileIn.value='';});
+  ['dragenter','dragover'].forEach(function(t){document.addEventListener(t,function(e){e.preventDefault();imgBox.classList.add('drag');});});
+  ['dragleave','drop'].forEach(function(t){document.addEventListener(t,function(e){e.preventDefault();imgBox.classList.remove('drag');});});
+  document.addEventListener('drop',function(e){
+    if(e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+  });
+
+  /* ---------- Scale the 840px stage to fit the screen ---------- */
+  function layout(){
+    var s=Math.min(1,fit.clientWidth/840);
+    stage.style.transform='scale('+s+')';
+    fit.style.height=(stage.offsetHeight*s)+'px';
+  }
+  window.addEventListener('resize',layout);
+  if(window.ResizeObserver) new ResizeObserver(layout).observe(stage);
+  if(document.fonts&&document.fonts.ready) document.fonts.ready.then(layout);
+  layout();
+
+  /* ---------- PNG export: redraw the stage on a canvas ---------- */
+  function rrect(ctx,x,y,w,h,r){
+    r=Math.min(r,w/2,h/2);
+    ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();
+  }
+  async function exportPng(){
+    try{ await document.fonts.load('600 40px Oswald'); }catch(e){}
+    var K=2, W=stage.offsetWidth, H=stage.offsetHeight;
+    var sr=stage.getBoundingClientRect(), sc=sr.width/W;
+    var cv=document.createElement('canvas');cv.width=W*K;cv.height=H*K;
+    var ctx=cv.getContext('2d');
+    ctx.fillStyle='#000';ctx.fillRect(0,0,cv.width,cv.height);
+
+    var ir=imgBox.getBoundingClientRect();
+    var ix=(ir.left-sr.left)/sc*K, iy=(ir.top-sr.top)/sc*K, iw=ir.width/sc*K, ih=ir.height/sc*K;
+    if(imgBox.classList.contains('has') && img.naturalWidth){
+      var r=Math.max(iw/img.naturalWidth, ih/img.naturalHeight);
+      var dw=img.naturalWidth*r, dh=img.naturalHeight*r;
+      ctx.save();ctx.beginPath();ctx.rect(ix,iy,iw,ih);ctx.clip();
+      ctx.drawImage(img,ix+(iw-dw)/2,iy+(ih-dh)/2,dw,dh);ctx.restore();
+    }else{
+      ctx.fillStyle='#2a2a2a';ctx.fillRect(ix,iy,iw,ih);
+    }
+
+    /* highlights */
+    editor.querySelectorAll('span').forEach(function(el){
+      var bg=el.style.backgroundColor;
+      if(!bg||bg==='transparent') return;
+      var fs=parseFloat(getComputedStyle(el).fontSize)*K;
+      ctx.fillStyle=bg;
+      Array.prototype.forEach.call(el.getClientRects(),function(r){
+        if(r.width<1) return;
+        rrect(ctx,(r.left-sr.left)/sc*K,(r.top-sr.top)/sc*K,r.width/sc*K,r.height/sc*K,fs*.24);
+        ctx.fill();
+      });
+    });
+
+    /* text, word by word, positioned from the live layout */
+    var walker=document.createTreeWalker(editor,NodeFilter.SHOW_TEXT);
+    var node, range=document.createRange();
+    while((node=walker.nextNode())){
+      var cs=getComputedStyle(node.parentElement);
+      var fsz=parseFloat(cs.fontSize)*K;
+      ctx.font=cs.fontWeight+' '+fsz+'px '+cs.fontFamily;
+      if('letterSpacing' in ctx){
+        var ls=parseFloat(cs.letterSpacing);
+        ctx.letterSpacing=(isNaN(ls)?0:ls*K)+'px';
+      }
+      ctx.fillStyle=cs.color;ctx.textBaseline='alphabetic';
+      var re=/\S+/g, m;
+      while((m=re.exec(node.data))){
+        range.setStart(node,m.index);range.setEnd(node,m.index+m[0].length);
+        var rc=range.getClientRects()[0]; if(!rc) continue;
+        var mt=ctx.measureText(m[0]);
+        var asc=mt.fontBoundingBoxAscent!=null?mt.fontBoundingBoxAscent:fsz*.95;
+        ctx.fillText(m[0].toUpperCase(),(rc.left-sr.left)/sc*K,(rc.top-sr.top)/sc*K+asc);
+      }
+    }
+
+    cv.toBlob(function(b){
+      var a=document.createElement('a');
+      a.href=URL.createObjectURL(b);a.download='statement-meme.png';
+      document.body.appendChild(a);a.click();a.remove();
+    },'image/png');
+  }
+  $('downloadBtn').addEventListener('click',exportPng);
+})();
+</script>
+</body>
+</html>
